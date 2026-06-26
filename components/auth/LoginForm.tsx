@@ -17,6 +17,7 @@ interface LoginFormProps {
   isSubmitting: boolean;
   errorMessage: string | null;
   successMessage: string | null;
+  retryCountdown?: number | null;
   onSubmit: () => void;
   onSwitchMode: () => void;
 }
@@ -28,10 +29,18 @@ function LoginFormComponent({
   isSubmitting,
   errorMessage,
   successMessage,
+  retryCountdown = null,
   onSubmit,
   onSwitchMode,
 }: LoginFormProps) {
   const isLogin = mode === 'login';
+  const isRetryBlocked = retryCountdown !== null && retryCountdown > 0;
+  const submitTitle =
+    isRetryBlocked
+      ? `Réessayer dans ${retryCountdown} s`
+      : isLogin
+        ? 'Se connecter'
+        : "S'inscrire";
 
   return (
     <View style={styles.card}>
@@ -58,12 +67,13 @@ function LoginFormComponent({
             <Input
               autoCapitalize="none"
               autoComplete="email"
-              editable={!isSubmitting}
+              autoCorrect={false}
+              editable={!isSubmitting && !isRetryBlocked}
               error={errors.email?.message}
               keyboardType="email-address"
               label="E-mail"
               onBlur={onBlur}
-              onChangeText={onChange}
+              onChangeText={(text) => onChange(text.trim())}
               placeholder="vous@exemple.com"
               value={value}
             />
@@ -83,7 +93,7 @@ function LoginFormComponent({
           render={({ field: { onChange, onBlur, value } }) => (
             <Input
               autoComplete="password"
-              editable={!isSubmitting}
+              editable={!isSubmitting && !isRetryBlocked}
               error={errors.password?.message}
               label="Mot de passe"
               onBlur={onBlur}
@@ -97,15 +107,15 @@ function LoginFormComponent({
       </View>
 
       <Button
-        disabled={isSubmitting}
+        disabled={isSubmitting || isRetryBlocked}
         loading={isSubmitting}
         onPress={onSubmit}
         style={styles.submitButton}
-        title={isLogin ? 'Se connecter' : "S'inscrire"}
+        title={submitTitle}
       />
 
       <Pressable
-        disabled={isSubmitting}
+        disabled={isSubmitting || isRetryBlocked}
         onPress={onSwitchMode}
         style={({ pressed }) => [styles.switchMode, pressed && styles.switchModePressed]}
       >

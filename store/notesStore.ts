@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { getErrorMessage } from '@/lib/errors';
 import * as notesService from '@/services/notes';
+import { cancelNoteReminder, scheduleNoteReminder } from '@/services/notifications';
 import type { Note, NoteInput } from '@/types/note';
 
 interface NotesState {
@@ -12,8 +13,18 @@ interface NotesState {
   fetchNotes: (userId: string) => Promise<void>;
   createNote: (userId: string, input: NoteInput) => Promise<boolean>;
   updateNote: (noteId: string, input: NoteInput) => Promise<boolean>;
+  toggleNoteCompleted: (noteId: string, completed: boolean) => Promise<boolean>;
   deleteNote: (noteId: string) => Promise<boolean>;
   clearNotes: () => void;
+}
+
+async function syncNoteReminder(note: Note): Promise<void> {
+  if (note.due_date && !note.completed) {
+    await scheduleNoteReminder(note.id, note.title, note.due_date, note.completed);
+    return;
+  }
+
+  await cancelNoteReminder(note.id);
 }
 
 export const useNotesStore = create<NotesState>((set, get) => ({
@@ -36,7 +47,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       if (get().fetchRequestId !== requestId) {
         return;
       }
-      set({ loading: false, error: getErrorMessage(err, 'Impossible de charger les notes.') });
+      set({ loading: false, error: getErrorMessage(err, 'Impossible de charger l\'agenda.') });
     }
   },
 
@@ -45,10 +56,11 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
     try {
       const note = await notesService.createNote(userId, input);
+      await syncNoteReminder(note);
       set({ notes: [note, ...get().notes] });
       return true;
     } catch (err) {
-      set({ error: getErrorMessage(err, 'Impossible de créer la note.') });
+      set({ error: getErrorMessage(err, 'Impossible de créer l\'entrée.') });
       return false;
     }
   },
@@ -58,12 +70,29 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
     try {
       const updated = await notesService.updateNote(noteId, input);
+      await syncNoteReminder(updated);
       set({
         notes: get().notes.map((note) => (note.id === noteId ? updated : note)),
       });
       return true;
     } catch (err) {
-      set({ error: getErrorMessage(err, 'Impossible de modifier la note.') });
+      set({ error: getErrorMessage(err, 'Impossible de modifier l\'entrée.') });
+      return false;
+    }
+  },
+
+  toggleNoteCompleted: async (noteId: string, completed: boolean) => {
+    set({ error: null });
+
+    try {
+      const updated = await notesService.toggleNoteCompleted(noteId, completed);
+      await syncNoteReminder(updated);
+      set({
+        notes: get().notes.map((note) => (note.id === noteId ? updated : note)),
+      });
+      return true;
+    } catch (err) {
+      set({ error: getErrorMessage(err, 'Impossible de mettre à jour le statut.') });
       return false;
     }
   },
@@ -72,11 +101,12 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     set({ error: null });
 
     try {
+      await cancelNoteReminder(noteId);
       await notesService.deleteNote(noteId);
       set({ notes: get().notes.filter((note) => note.id !== noteId) });
       return true;
     } catch (err) {
-      set({ error: getErrorMessage(err, 'Impossible de supprimer la note.') });
+      set({ error: getErrorMessage(err, 'Impossible de supprimer l\'entrée.') });
       return false;
     }
   },

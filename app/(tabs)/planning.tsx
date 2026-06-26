@@ -1,25 +1,22 @@
-import { useCallback } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FilterChips } from '@/components/notes/FilterChips';
-import { NoteCard } from '@/components/notes/NoteCard';
 import { NoteFormModal } from '@/components/notes/NoteFormModal';
-import { NotificationsCard } from '@/components/notes/NotificationsCard';
+import { PlanningNoteRow } from '@/components/notes/PlanningNoteRow';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { LoadingView } from '@/components/ui/LoadingView';
 import { useNotes } from '@/hooks/useNotes';
-import { useNotifications } from '@/hooks/useNotifications';
-import { NOTE_FILTER_LABELS } from '@/lib/noteUtils';
+import { formatWeekRange } from '@/lib/format';
+import { getCurrentWeekBounds, groupNotesByDay } from '@/lib/noteUtils';
 import { commonStyles, theme } from '@/lib/theme';
 import type { Note } from '@/types/note';
 
-export default function HomeScreen() {
+export default function PlanningScreen() {
   const {
-    filteredNotes,
-    activeFilter,
+    notes,
     loading,
     error,
     refreshing,
@@ -33,8 +30,6 @@ export default function HomeScreen() {
     formError,
     isSubmitting,
     refresh,
-    setActiveFilter,
-    openCreateModal,
     openEditModal,
     closeModal,
     setTitle,
@@ -43,42 +38,28 @@ export default function HomeScreen() {
     setDueDate,
     setCompleted,
     submitForm,
-    confirmDelete,
     toggleComplete,
   } = useNotes();
 
-  const { status, isTesting, testNotification } = useNotifications();
+  const dayGroups = useMemo(() => groupNotesByDay(notes), [notes]);
+  const weekRangeLabel = useMemo(() => {
+    const { weekStart, weekEnd } = getCurrentWeekBounds();
+    return formatWeekRange(weekStart, weekEnd);
+  }, []);
 
-  const renderNote = useCallback(
-    ({ item }: { item: Note }) => (
-      <NoteCard
-        note={item}
-        onDelete={confirmDelete}
-        onEdit={openEditModal}
-        onToggleComplete={toggleComplete}
-      />
-    ),
-    [confirmDelete, openEditModal, toggleComplete],
+  const handleToggleComplete = useCallback(
+    (note: Note) => {
+      void toggleComplete(note);
+    },
+    [toggleComplete],
   );
-
-  const keyExtractor = useCallback((item: Note) => item.id, []);
-
-  const renderSeparator = useCallback(
-    () => <View style={styles.listSeparator} />,
-    [],
-  );
-
-  const emptyDescription =
-    activeFilter === 'all'
-      ? 'Appuyez sur « Ajouter » pour planifier un cours, un devoir ou un examen.'
-      : `Aucune entrée dans « ${NOTE_FILTER_LABELS[activeFilter]} ».`;
 
   const renderContent = () => {
-    if (loading && filteredNotes.length === 0) {
-      return <LoadingView message="Chargement de l'agenda…" />;
+    if (loading && dayGroups.length === 0) {
+      return <LoadingView message="Chargement du planning…" />;
     }
 
-    if (error && filteredNotes.length === 0) {
+    if (error && dayGroups.length === 0) {
       return (
         <View style={styles.centered}>
           <ErrorMessage message={error} />
@@ -87,22 +68,18 @@ export default function HomeScreen() {
       );
     }
 
-    if (filteredNotes.length === 0) {
+    if (dayGroups.length === 0) {
       return (
         <EmptyState
-          description={emptyDescription}
-          title={activeFilter === 'all' ? 'Agenda vide' : 'Rien à afficher'}
+          description="Les devoirs, cours et examens à venir cette semaine apparaîtront ici."
+          title="Semaine tranquille"
         />
       );
     }
 
     return (
-      <FlatList
-        contentContainerStyle={styles.listContent}
-        data={filteredNotes}
-        ItemSeparatorComponent={renderSeparator}
-        keyExtractor={keyExtractor}
-        removeClippedSubviews
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             colors={[theme.colors.primary]}
@@ -111,9 +88,31 @@ export default function HomeScreen() {
             onRefresh={refresh}
           />
         }
-        renderItem={renderNote}
         showsVerticalScrollIndicator={false}
-      />
+      >
+        {dayGroups.map((group) => (
+          <View key={group.key} style={styles.daySection}>
+            <View style={styles.dayHeader}>
+              <Text style={[styles.dayTitle, group.isOverdue && styles.dayTitleOverdue]}>
+                {group.label}
+              </Text>
+              <Text style={styles.dayCount}>
+                {group.notes.length} {group.notes.length > 1 ? 'entrées' : 'entrée'}
+              </Text>
+            </View>
+            <View style={styles.dayNotes}>
+              {group.notes.map((note) => (
+                <PlanningNoteRow
+                  key={note.id}
+                  note={note}
+                  onPress={openEditModal}
+                  onToggleComplete={handleToggleComplete}
+                />
+              ))}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
     );
   };
 
@@ -121,29 +120,14 @@ export default function HomeScreen() {
     <SafeAreaView style={commonStyles.screen} edges={['bottom']}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.overline}>StudyFlow</Text>
-            <Text style={styles.title}>Mon agenda</Text>
-          </View>
-          <Button
-            onPress={openCreateModal}
-            size="compact"
-            style={styles.addButton}
-            title="Ajouter"
-          />
+          <Text style={styles.overline}>StudyFlow</Text>
+          <Text style={styles.title}>Vue semaine</Text>
+          <Text style={styles.subtitle}>{weekRangeLabel}</Text>
         </View>
 
-        {error && filteredNotes.length > 0 ? (
+        {error && dayGroups.length > 0 ? (
           <ErrorMessage message={error} style={styles.inlineError} />
         ) : null}
-
-        <FilterChips activeFilter={activeFilter} onChange={setActiveFilter} />
-
-        <NotificationsCard
-          isTesting={isTesting}
-          onTest={testNotification}
-          status={status}
-        />
 
         {renderContent()}
       </View>
@@ -177,14 +161,8 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
   },
   header: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
-  },
-  headerText: {
-    flex: 1,
     gap: theme.spacing.xs,
+    marginBottom: theme.spacing.lg,
   },
   overline: {
     ...theme.typography.overline,
@@ -194,8 +172,9 @@ const styles = StyleSheet.create({
     ...theme.typography.h1,
     color: theme.colors.text,
   },
-  addButton: {
-    marginLeft: theme.spacing.sm,
+  subtitle: {
+    ...theme.typography.bodySmall,
+    color: theme.colors.textSecondary,
   },
   inlineError: {
     marginBottom: theme.spacing.md,
@@ -210,10 +189,32 @@ const styles = StyleSheet.create({
   retryButton: {
     minWidth: 140,
   },
-  listContent: {
+  scrollContent: {
+    gap: theme.spacing.lg,
     paddingBottom: theme.spacing.xl,
   },
-  listSeparator: {
-    height: theme.spacing.md,
+  daySection: {
+    gap: theme.spacing.sm,
+  },
+  dayHeader: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dayTitle: {
+    ...theme.typography.h3,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  dayTitleOverdue: {
+    color: theme.colors.error,
+  },
+  dayCount: {
+    ...theme.typography.caption,
+    color: theme.colors.textTertiary,
+    marginLeft: theme.spacing.sm,
+  },
+  dayNotes: {
+    gap: theme.spacing.sm,
   },
 });

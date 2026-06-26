@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Projet React Native",
+    "name": "StudyFlow",
     "slug": "projet-react-native",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -44,7 +44,8 @@
         {
           "cameraPermission": "Cette application utilise la caméra pour prendre une photo de profil."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

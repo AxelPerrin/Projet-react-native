@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LoginForm } from '@/components/auth/LoginForm';
-import { mapAuthError } from '@/lib/errors';
+import { formatAuthRetryMessage, mapAuthError } from '@/lib/errors';
 import { commonStyles, theme } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
 import type { LoginFormData } from '@/types';
@@ -24,7 +24,28 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
   const submitInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (retryCountdown === null) {
+      return;
+    }
+
+    if (retryCountdown <= 0) {
+      setErrorMessage('Vous pouvez réessayer.');
+      setRetryCountdown(null);
+      return;
+    }
+
+    setErrorMessage(formatAuthRetryMessage(retryCountdown));
+
+    const timeoutId = setTimeout(() => {
+      setRetryCountdown((current) => (current === null ? null : current - 1));
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [retryCountdown]);
 
   const {
     control,
@@ -42,12 +63,13 @@ export default function LoginScreen() {
     setMode((current) => (current === 'login' ? 'signup' : 'login'));
     setErrorMessage(null);
     setSuccessMessage(null);
+    setRetryCountdown(null);
     reset();
   }, [reset]);
 
   const onSubmit = useCallback(
     async (data: LoginFormData) => {
-      if (submitInFlightRef.current) {
+      if (submitInFlightRef.current || (retryCountdown !== null && retryCountdown > 0)) {
         return;
       }
 
@@ -57,15 +79,18 @@ export default function LoginScreen() {
       setSuccessMessage(null);
 
       try {
-        const { error } =
+        const result =
           mode === 'login'
             ? await signIn(data.email, data.password)
             : await signUp(data.email, data.password);
 
-        if (error) {
-          setErrorMessage(error);
+        if (result.error) {
+          setErrorMessage(result.error);
+          setRetryCountdown(result.retryAfterSeconds ?? null);
           return;
         }
+
+        setRetryCountdown(null);
 
         if (mode === 'signup') {
           setSuccessMessage(
@@ -82,7 +107,7 @@ export default function LoginScreen() {
         setIsSubmitting(false);
       }
     },
-    [mode, signIn, signUp],
+    [mode, retryCountdown, signIn, signUp],
   );
 
   const submitForm = useCallback(() => {
@@ -103,14 +128,14 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.brand}>Notes</Text>
+            <Text style={styles.brand}>StudyFlow</Text>
             <Text style={styles.title}>
               {isLogin ? 'Connexion' : 'Inscription'}
             </Text>
             <Text style={styles.subtitle}>
               {isLogin
-                ? 'Connectez-vous pour accéder à votre espace.'
-                : 'Créez un compte pour commencer.'}
+                ? 'Connectez-vous pour accéder à votre agenda étudiant.'
+                : 'Créez un compte pour organiser vos cours et devoirs.'}
             </Text>
           </View>
 
@@ -122,6 +147,7 @@ export default function LoginScreen() {
             mode={mode}
             onSubmit={submitForm}
             onSwitchMode={switchMode}
+            retryCountdown={retryCountdown}
             successMessage={successMessage}
           />
         </ScrollView>

@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TabBarIcon } from '@/components/ui/TabBarIcon';
 import { theme } from '@/lib/theme';
 
 const TAB_BAR_BASE_HEIGHT = 60;
@@ -14,7 +15,6 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarIcon: () => null,
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarLabelStyle: {
@@ -38,8 +38,17 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Accueil',
-          tabBarLabel: 'Accueil',
+          title: 'Agenda',
+          tabBarLabel: 'Agenda',
+          tabBarIcon: ({ color, size }) => <TabBarIcon color={color} name="list" size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="planning"
+        options={{
+          title: 'Planning',
+          tabBarLabel: 'Planning',
+          tabBarIcon: ({ color, size }) => <TabBarIcon color={color} name="calendar" size={size} />,
         }}
       />
       <Tabs.Screen
@@ -47,6 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'Profil',
           tabBarLabel: 'Profil',
+          tabBarIcon: ({ color, size }) => <TabBarIcon color={color} name="person" size={size} />,
         }}
       />
     </Tabs>

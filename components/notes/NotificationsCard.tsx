@@ -14,7 +14,10 @@ function NotificationsCardComponent({ status, isTesting, onTest }: Notifications
   return (
     <View style={styles.card}>
       <Text style={styles.overline}>Notifications</Text>
-      <Text style={styles.title}>Rappels locaux</Text>
+      <Text style={styles.title}>Rappels automatiques</Text>
+      <Text style={styles.hint}>
+        Un rappel est planifié la veille (9 h) pour chaque entrée avec une date limite.
+      </Text>
       <Text style={styles.status}>{status ?? 'Configuration en cours…'}</Text>
       <Button
         disabled={isTesting}
@@ -43,6 +46,10 @@ const styles = StyleSheet.create({
   title: {
     ...theme.typography.h3,
     color: theme.colors.text,
+  },
+  hint: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
   },
   status: {
     ...theme.typography.caption,

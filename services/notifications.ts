@@ -97,3 +97,94 @@ export async function sendLocalNotification(title: string, body: string): Promis
     trigger: null,
   });
 }
+
+const NOTE_REMINDER_PREFIX = 'studyflow-note-';
+
+export function getNoteReminderIdentifier(noteId: string): string {
+  return `${NOTE_REMINDER_PREFIX}${noteId}`;
+}
+
+function startOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function getReminderDate(dueDateIso: string): Date | null {
+  const due = startOfDay(new Date(dueDateIso.includes('T') ? dueDateIso : `${dueDateIso}T00:00:00`));
+  if (Number.isNaN(due.getTime())) {
+    return null;
+  }
+
+  const dayBefore = new Date(due);
+  dayBefore.setDate(dayBefore.getDate() - 1);
+  dayBefore.setHours(9, 0, 0, 0);
+
+  const now = new Date();
+  if (dayBefore > now) {
+    return dayBefore;
+  }
+
+  const morningOf = new Date(due);
+  morningOf.setHours(9, 0, 0, 0);
+  if (morningOf > now) {
+    return morningOf;
+  }
+
+  return null;
+}
+
+export async function cancelNoteReminder(noteId: string): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(getNoteReminderIdentifier(noteId));
+  } catch {
+    if (__DEV__) {
+      console.warn('[notifications] Failed to cancel reminder for note:', noteId);
+    }
+  }
+}
+
+export async function scheduleNoteReminder(
+  noteId: string,
+  title: string,
+  dueDateIso: string,
+  completed: boolean,
+): Promise<void> {
+  await cancelNoteReminder(noteId);
+
+  if (completed || !dueDateIso) {
+    return;
+  }
+
+  const reminderDate = getReminderDate(dueDateIso);
+  if (!reminderDate) {
+    return;
+  }
+
+  const permission = await requestNotificationPermission();
+  if (!permission.granted) {
+    return;
+  }
+
+  await ensureAndroidNotificationChannel();
+
+  const due = startOfDay(new Date(dueDateIso.includes('T') ? dueDateIso : `${dueDateIso}T00:00:00`));
+  const dueLabel = due.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: getNoteReminderIdentifier(noteId),
+    content: {
+      title: 'StudyFlow — Rappel',
+      body: `« ${title} » est à rendre le ${dueLabel}.`,
+      data: { noteId },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: reminderDate,
+    },
+  });
+}

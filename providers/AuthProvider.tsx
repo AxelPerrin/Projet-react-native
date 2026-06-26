@@ -11,15 +11,21 @@ import {
 } from 'react';
 
 import { sessionAccessToken } from '@/lib/auth';
-import { mapAuthError } from '@/lib/errors';
+import { mapAuthErrorDetails } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null; retryAfterSeconds?: number }>;
+  signUp: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null; retryAfterSeconds?: number }>;
   signOut: () => Promise<{ error: AuthError | null }>;
 }
 
@@ -78,9 +84,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error ? mapAuthError(error) : null };
+      if (error) {
+        const details = mapAuthErrorDetails(error);
+        return {
+          error: details.message,
+          retryAfterSeconds: details.retryAfterSeconds,
+        };
+      }
+      return { error: null };
     } catch (err) {
-      return { error: mapAuthError(err) };
+      const details = mapAuthErrorDetails(err);
+      return {
+        error: details.message,
+        retryAfterSeconds: details.retryAfterSeconds,
+      };
     }
   }, []);
 
@@ -95,7 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
-        return { error: mapAuthError(error) };
+        const details = mapAuthErrorDetails(error);
+        return {
+          error: details.message,
+          retryAfterSeconds: details.retryAfterSeconds,
+        };
       }
 
       // Prevent redirect loops: discard unconfirmed sessions after signup.
@@ -105,7 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error: null };
     } catch (err) {
-      return { error: mapAuthError(err) };
+      const details = mapAuthErrorDetails(err);
+      return {
+        error: details.message,
+        retryAfterSeconds: details.retryAfterSeconds,
+      };
     } finally {
       signUpInFlightRef.current = false;
     }
