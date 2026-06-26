@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
 import * as cameraService from '@/services/camera';
+import * as profileService from '@/services/profile';
 
 interface UseCameraResult {
   photoUri: string | null;
@@ -32,7 +33,7 @@ export function useCamera(userId: string | undefined): UseCameraResult {
       setError(null);
 
       try {
-        const savedUri = await cameraService.getSavedPhotoUri(currentUserId);
+        const savedUri = await profileService.fetchProfileAvatarUrl(currentUserId);
         if (!cancelled) {
           setPhotoUri(savedUri);
         }
@@ -77,8 +78,8 @@ export function useCamera(userId: string | undefined): UseCameraResult {
         return;
       }
 
-      await cameraService.savePhotoUri(userId, result.uri);
-      setPhotoUri(result.uri);
+      const avatarUrl = await profileService.uploadProfileAvatar(userId, result.uri);
+      setPhotoUri(avatarUrl);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Impossible de prendre une photo.';

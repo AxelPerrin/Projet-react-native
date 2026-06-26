@@ -1,9 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
 import { getErrorMessage } from '@/lib/errors';
-
-const PHOTO_KEY_PREFIX = 'profile_photo:';
 
 export type CameraPermissionResult = {
   granted: boolean;
@@ -14,10 +11,6 @@ export type CameraCaptureResult = {
   uri: string | null;
   message?: string;
 };
-
-function getStorageKey(userId: string): string {
-  return `${PHOTO_KEY_PREFIX}${userId}`;
-}
 
 export async function requestCameraPermission(): Promise<CameraPermissionResult> {
   try {
@@ -72,20 +65,4 @@ export async function launchCamera(): Promise<CameraCaptureResult> {
       message: getErrorMessage(error, 'Impossible d’ouvrir la caméra.'),
     };
   }
-}
-
-export async function getSavedPhotoUri(userId: string): Promise<string | null> {
-  try {
-    return await AsyncStorage.getItem(getStorageKey(userId));
-  } catch {
-    return null;
-  }
-}
-
-export async function savePhotoUri(userId: string, uri: string): Promise<void> {
-  await AsyncStorage.setItem(getStorageKey(userId), uri);
-}
-
-export async function clearSavedPhotoUri(userId: string): Promise<void> {
-  await AsyncStorage.removeItem(getStorageKey(userId));
 }

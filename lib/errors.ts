@@ -81,7 +81,6 @@ function normalizeAuthErrorInput(error: unknown): AuthErrorLike {
     const parsed = parseJsonAuthMessage(error.message);
     if (parsed) return parsed;
 
-    // Supabase AuthError extends Error and carries `code` and `status` — preserve them.
     const asAuthLike = error as unknown as AuthErrorLike;
     return {
       message: error.message,
@@ -140,17 +139,6 @@ function isSecurityCooldownError(message: string): boolean {
   );
 }
 
-/**
- * Maps Supabase Auth errors to French UI messages.
- *
- * Never surfaces raw JSON, URLs, or HTTP details to the user.
- *
- * Supabase free tier limits auth e-mails (~2 per hour). For local dev, disable
- * "Confirm email" in Dashboard → Authentication → Providers → Email.
- *
- * Do not create auth users via SQL with crypt() — GoTrue expects its own hash
- * format. Use Dashboard → Authentication → Users → Add user (Auto Confirm).
- */
 export function mapAuthErrorDetails(error: unknown): AuthErrorDetails {
   const authError = normalizeAuthErrorInput(error);
   const message = (authError.message ?? '').toLowerCase();

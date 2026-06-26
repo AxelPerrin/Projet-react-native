@@ -66,8 +66,7 @@ function NoteFormModalComponent({
   const [dateInput, setDateInput] = useState('');
   const [dateInputError, setDateInputError] = useState<string | null>(null);
 
-  // Initialise the text field from the current dueDate whenever the modal opens/closes.
-  // Runs only on `visible` changes to avoid feedback-loops with onChangeDueDate.
+  // Sync date field on open; visible-only deps avoid feedback loops.
   useEffect(() => {
     if (visible) {
       if (dueDate) {
@@ -86,10 +85,8 @@ function NoteFormModalComponent({
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDateInput = (text: string) => {
-    // Keep only digits, cap at 8 (DDMMYYYY)
     const digits = text.replace(/\D/g, '').slice(0, 8);
 
-    // Auto-insert slashes: DD / MM / YYYY
     let formatted = digits;
     if (digits.length > 4) {
       formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
@@ -111,7 +108,6 @@ function NoteFormModalComponent({
         return;
       }
 
-      // JavaScript Date validates day-in-month automatically (e.g. 30/02 overflows)
       const date = new Date(year, month - 1, day);
       if (
         date.getDate() !== day ||

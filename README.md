@@ -57,3 +57,10 @@ L'application est organisée autour de trois onglets principaux :
 - **Profil** — informations du compte, photo et déconnexion
 
 En dehors des onglets, un écran de connexion et d'inscription gère l'authentification. Le code est réparti entre les écrans (dossier app), les composants réutilisables (notes, authentification, profil, interface), les hooks et services (appels Supabase, notifications, caméra), le store Zustand pour l'état des notes, et les utilitaires partagés (formatage, thème, gestion des erreurs).
+
+```bash
+npm start
+npm run android
+npm run ios
+npm run web
+```

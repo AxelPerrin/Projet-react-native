@@ -1,6 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
 
-/** True when the user has a confirmed e-mail and may access protected routes. */
 export function isAuthenticated(session: Session | null): boolean {
   if (!session?.user) {
     return false;
